@@ -1,0 +1,134 @@
+import numpy as np
+
+# -----------------------------
+# تعريف البيئة (Grid World)
+# -----------------------------
+
+# حجم الشبكة (4 صفوف × 4 أعمدة)
+grid_size = 4
+
+# عدد الحالات = عدد الخانات في الشبكة
+num_states = grid_size * grid_size
+
+# عدد الأفعال الممكنة (أعلى، أسفل، يسار، يمين)
+num_actions = 4
+
+# تحديد موقع الهدف (أسفل يمين الشبكة)
+goal_state = (3, 3)
+
+# -----------------------------
+# دوال مساعدة
+# -----------------------------
+
+# دالة لتحويل (صف، عمود) إلى رقم حالة واحد
+def state_to_index(row, col):
+    return row * grid_size + col
+
+# دالة لإعادة البيئة لنقطة البداية
+def reset():
+    # البداية دائمًا من (0,0)
+    return (0, 0)
+
+# دالة لتنفيذ فعل داخل البيئة
+def step(state, action):
+    # استخراج الصف والعمود الحالي
+    row, col = state
+
+    # تنفيذ الفعل بناءً على رقمه
+    if action == 0:      # أعلى
+        row = max(row - 1, 0)
+    elif action == 1:    # أسفل
+        row = min(row + 1, grid_size - 1)
+    elif action == 2:    # يسار
+        col = max(col - 1, 0)
+    elif action == 3:    # يمين
+        col = min(col + 1, grid_size - 1)
+
+    # الحالة الجديدة بعد الحركة
+    next_state = (row, col)
+
+    # إذا وصلنا للهدف
+    if next_state == goal_state:
+        reward = 10      # مكافأة كبيرة
+        done = True      # انتهاء الحلقة
+    else:
+        reward = -1      # عقوبة خطوة
+        done = False
+
+    # إرجاع الحالة الجديدة والمكافأة وهل انتهت الحلقة
+    return next_state, reward, done
+
+# -----------------------------
+# تهيئة Q-Table
+# -----------------------------
+
+# إنشاء جدول Q مملوء بالأصفار
+# الأبعاد: (عدد الحالات × عدد الأفعال)
+Q = np.zeros((num_states, num_actions))
+
+# -----------------------------
+# معاملات Q-Learning
+# -----------------------------
+
+alpha = 0.1      # معدل التعلم (Learning Rate)
+gamma = 0.9      # معامل الخصم (Discount Factor)
+epsilon = 0.3    # نسبة الاستكشاف (Exploration Rate)
+episodes = 1000  # عدد الحلقات التدريبية
+
+# -----------------------------
+# حلقة التدريب
+# -----------------------------
+
+for episode in range(episodes):
+    # إعادة البيئة لنقطة البداية
+    state = reset()
+
+    # تحويل الحالة إلى رقم
+    state_index = state_to_index(state[0], state[1])
+
+    # متغير للتحكم في انتهاء الحلقة
+    done = False
+
+    # تكرار حتى نصل للهدف
+    while not done:
+
+        # اختيار الفعل (استكشاف أو استغلال)
+        if np.random.rand() < epsilon:
+            # اختيار فعل عشوائي (Exploration)
+            action = np.random.randint(num_actions)
+        else:
+            # اختيار أفضل فعل من جدول Q (Exploitation)
+            action = np.argmax(Q[state_index])
+
+        # تنفيذ الفعل في البيئة
+        next_state, reward, done = step(state, action)
+
+        # تحويل الحالة الجديدة إلى رقم
+        next_state_index = state_to_index(next_state[0], next_state[1])
+
+        # تحديث قيمة Q باستخدام معادلة Q-Learning
+        Q[state_index, action] = Q[state_index, action] + alpha * (
+            reward + gamma * np.max(Q[next_state_index]) - Q[state_index, action]
+        )
+
+        # الانتقال للحالة الجديدة
+        state = next_state
+        state_index = next_state_index
+
+# -----------------------------
+# عرض النتائج
+# -----------------------------
+
+# طباعة جدول Q النهائي
+print("Q-Table بعد التدريب:\n")
+print(Q)
+
+# -----------------------------
+# استخراج السياسة المثلى
+# -----------------------------
+
+# اختيار أفضل فعل لكل حالة
+policy = np.argmax(Q, axis=1)
+
+print("\nالسياسة المستخلصة (0↑, 1↓, 2←, 3→):\n")
+print(policy.reshape(grid_size, grid_size))
